@@ -1,0 +1,20 @@
+---
+- name: create/update stack
+  cloudFormation: 
+    stack_name: first-insta
+    state: present
+    template: templates/jdaaj1_v3.yml
+    template_format: yaml
+    template_parameters:
+      VpcId: "{ { vpc_id } }"
+      SubnetId: "{ { subnet_id } }"
+      KeyPair: "{ { ec2_keypair } }"
+      InstanceCount: "{ { instance_count | default(1) } }"
+    tags:
+      Enviornment: test
+    register: cf_stack
+
+    
+-  debug: msg={{ cf_stack }}
+   when: debug is defined
+      
