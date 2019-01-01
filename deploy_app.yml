@@ -1,0 +1,7 @@
+---
+- name: set task definition facts
+  set_fact:
+    jenkins_master_task_def_arn:
+      "{ { cf_stack.stack_outputs.JenkinsMasterTaskDefinition | regex_replace('^(.*):[\\d]*$','\\1') } }"
+
+      
