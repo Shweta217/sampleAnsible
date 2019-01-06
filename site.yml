@@ -1,0 +1,18 @@
+---
+- name: Spring Petclinic Playbook
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  #vars_files:
+   # -  all.yml
+  environment:
+    AWS_ACCESS_KEY: "{{ lookup('env', 'AWS_ACCESS_KEY') }}"
+    AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    #AWS_DEFAULT_REGION: "{ { lookup('env', 'AWS_DEFAULT_REGION') | default('us-east-1a', true) } }"
+    #AWS_DEFAULT_REGION: "{ { lookup('env', 'AWS_DEFAULT_REGION') } }"
+    
+    
+  tasks:
+    -  include: tasks/create_stack.yml
+       
+       

@@ -1,0 +1,26 @@
+---     
+- name: stack
+  cloudformation: 
+    stack_name: first-insta
+    region: us-east-1
+    state: present
+    template: templates/stack.yml
+    template_format: yaml
+    template_parameters:
+      #region: "{ { aws_default_region } }"
+      #AWS_ACCESS_KEY: "{ { AWS_ACCESS_KEY } }"
+      #AWS_SECRET_ACCESS_KEY: "{  { AWS_SECRET_ACCESS_KEY } }"
+      
+      VpcId: "{{ vpc_id }}"
+      SubnetId: "{{ subnet_id }}"
+      KeyPair: "{{ ec2_keypair }}"
+      #InstanceCount: "{ { instance_count } }"
+      InstanceCount: 1
+    tags:
+      Environment: test
+    #register: cf_stack
+
+    
+#-  debug: msg={{ cf_stack }}
+ #  when: debug is defined
+      
