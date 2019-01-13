@@ -1,0 +1,385 @@
+---
+
+AWSTemplateFormatVersion : "2010-09-09"
+Description: "2nd Stack to test the integrating pipeline"
+
+Parameters:
+  
+  KeyPair:
+    Type: "String"
+    Description: "Key pair that allows SSH access for Linux or EC2 connection for remote desktoping for windows"
+  InstanceCount:
+    Type: "Number"
+    Description: "The desired No. of application instances"
+  DockerImage:
+    Description: "The docker image to use for Jenkins"
+    Type: "String"
+    Default: "sanjeev435/spring-petclinic"
+  AllowedIPRange:
+    Description: "The public IP address range that can be used to connect to the instances"
+    Type: "String"
+    MinLength: "9"
+    MaxLength: "18"
+    Default: "0.0.0.0/0"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
+  VPCIPRange:
+    Description: "The private IP address range for allocating IPs within the VPC."
+    Type: "String"
+    MinLength: "9"
+    MaxLength: "18"
+    Default: "10.0.0.0/16"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
+    
+
+
+    
+Resources:
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      EnableDnsSupport: "true"
+      EnableDnsHostnames: "true"
+      CidrBlock: {"Ref": "VPCIPRange"}
+      Tags: [ {
+            "Key": "Application",
+            "Value": { "Ref": "AWS::StackId" } } ]
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags: [ {
+        Key: "Application",
+        Value: { "Ref": "AWS::StackName" }
+          }, 
+          {
+        Key: "Network",
+        Value: "Public" } ]
+  GatewayToInternet: 
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: { "Ref": "VPC" }
+      InternetGatewayId: { "Ref": "InternetGateway" }
+  RouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: { "Ref": "VPC" }
+  SubnetRouteTableAssoc:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: { "Ref": "RouteTable" }
+      SubnetId: { "Ref": "Subnet" }
+  InternetGatewayRoute:
+    Type: "AWS::EC2::Route"
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      RouteTableId: { "Ref": "RouteTable" }
+      GatewayId: { "Ref": "InternetGateway" }
+  Subnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: { "Ref": "VPC" }
+      CidrBlock: {"Ref": "VPCIPRange"}
+      Tags: [ {
+        Key: "Application",
+        Value: { "Ref": "AWS::StackId" } } ]
+      
+
+  ECSServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument: {
+        Statement:[ {
+          Effect: "Allow",
+          Principal: {
+            Service:[ "ecs.amazonaws.com" ] },
+            Action:[ "sts:AssumeRole" ] } ] }
+      Path: "/"
+      Policies: [ {
+        PolicyName: "ecs-service",
+        PolicyDocument:{
+          Statement:[ {
+            Effect: "Allow",
+            Action:[
+                    "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+                    "elasticloadbalancing:DeregisterTargets",
+                    "elasticloadbalancing:Describe*",
+                    "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+                    "elasticloadbalancing:RegisterTargets",
+                    "ec2:Describe*",
+                    "ec2:AuthorizeSecurityGroupIngress"
+                  ],
+            Resource: "*"  } ] } } ]
+     
+    
+  JenkinsECSAutoScaling:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties: 
+      VPCZoneIdentifier: [ { "Ref": "Subnet" } ]
+      LaunchConfigurationName: { "Ref": "JenkinsECSLaunchConfiguration" }
+      MinSize: 1
+      MaxSize: 3
+      HealthCheckType: "EC2"
+      HealthCheckGracePeriod: 400
+      DesiredCapacity: { "Ref": "InstanceCount" }
+      Tags:
+        -  Key: "Name"
+           Value: { "Fn::Join": ["", [ { "Ref": "AWS::StackName" }, "-instance" ] ] }
+           PropagateAtLaunch: "true"
+  
+  JenkinsECSLaunchConfiguration:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Properties:
+      AssociatePublicIpAddress: true
+      ImageId: ami-045f1b3f87ed83659
+      InstanceType: t2.micro
+      KeyName: {"Ref": "KeyPair"}
+      IamInstanceProfile: {"Ref": "EC2InstanceProfile"}
+      SecurityGroups:
+        - {"Ref": "JenkinsSecurityGroup"}
+      BlockDeviceMappings:
+        -  DeviceName: "/dev/xvdcz"
+           Ebs:
+             VolumeSize: 24
+             DeleteOnTermination: true 
+      UserData: {
+        "Fn::Base64" : { "Fn::Join": ["", [
+          "#!/bin/bash\n",
+          "echo ECS_CLUSTER=", {"Ref" : "JenkinsCluster"}, ">> /etc/ecs/ecs.config\n"]]}}
+  
+  
+  JenkinsSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Host-sg"
+      VpcId: {"Ref": "VPC"}
+      SecurityGroupIngress:
+        -  IpProtocol: "tcp"
+           FromPort: "22"
+           ToPort: "22"
+           CidrIp: {"Ref": "AllowedIPRange"}
+        -  IpProtocol: "tcp"
+           FromPort: "8080"
+           ToPort: "8080"
+           CidrIp: {"Ref": "VPCIPRange"}       
+        -  IpProtocol: "tcp"
+           FromPort: "50000"
+           ToPort: "50000"
+           CidrIp: {"Ref": "VPCIPRange"}
+      Tags:
+        -  Key: "Name"
+           Value: { "Fn::Join": ["", [ { "Ref": "AWS::StackName" }, "-instance-sg" ] ] }
+  
+  
+    
+  EC2InstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument: {
+        "Statement": [ {
+          "Effect": "Allow",
+          "Principal": {"Service": [ "ec2.amazonaws.com" ] },
+          "Action": [ "sts:AssumeRole" ] } ] }
+      Path: "/"
+      Policies: [ {
+        PolicyName: "ecs-service",
+        PolicyDocument:{
+          Statement:[ {
+            Effect: "Allow",
+            Action:[
+                    "ecs:*",
+                    "elasticloadbalancing:Describe*",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+            Resource: "*"  } ] } } ]
+      
+      
+  EC2InstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      Roles: [{"Ref": "EC2InstanceRole"}] 
+  
+  
+  JenkinsELB:
+    Type: "AWS::ElasticLoadBalancing::LoadBalancer"
+    Properties:
+      LoadBalancerName: "jenkins-elb"
+      Scheme: "internet-facing"
+      Subnets: [ { "Ref": "Subnet" } ]
+      CrossZone: "false"
+      SecurityGroups: [{"Ref": "JenkinsELBSecurityGroup"}]
+      Listeners:
+        - InstancePort: "8080" 
+          InstanceProtocol: "HTTP"
+          LoadBalancerPort: "80"          
+          Protocol: "HTTP"
+          PolicyNames: [ "JenkinsELBStickiness" ]
+      LBCookieStickinessPolicy: [ {
+        CookieExpirationPeriod: "3600",
+        PolicyName: "JenkinsELBStickiness" } ]
+      HealthCheck:
+        HealthyThreshold: 3
+        Interval: 20
+        Target: "HTTP:8080/login"
+        Timeout: 2
+        UnhealthyThreshold: 10
+      Tags:
+        -  Key: "Name"
+           Value: { "Fn::Join": ["", [ { "Ref": "AWS::StackName" }, "-elb" ] ] }
+
+  JenkinsELBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "ELB Security Group"
+      VpcId: {"Ref": "VPC"}
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"    
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: { "Ref": "AllowedIPRange" }
+      Tags:
+        -  Key: "Name"
+           Value: { "Fn::Join": ["", [ { "Ref": "AWS::StackName" }, "-elb-sg" ] ] }
+
+  JenkinsCluster:
+    Type: "AWS::ECS::Cluster"
+    Properties: 
+      ClusterName: "jenkins-cluster"
+    
+
+  JenkinsMasterTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      Family: "jenkins-master"
+      NetworkMode: "bridge"
+      ContainerDefinitions:
+        -  Name: "jenkins-master"
+           MountPoints:
+             -  ContainerPath: "/var/jenkins_home"
+                SourceVolume: "data-volume"
+           Image: { "Ref": "DockerImage" }
+           Essential: true
+           Cpu: 1024
+           MemoryReservation: 992
+           PortMappings: [ {
+             "HostPort": 8080,
+             "ContainerPort": 8080,
+             "Protocol": "tcp"
+              },
+              {
+             "HostPort": 50000,
+             "ContainerPort": 50000,
+             "Protocol": "tcp" } ]
+      Volumes:
+        -  Host:
+             SourcePath: "/data/"
+           Name: "data-volume"
+  
+  
+  JenkinsECSService:
+    DependsOn: ["JenkinsELB"]
+    Type: "AWS::ECS::Service"
+    Properties:
+      Cluster: "jenkins-cluster"
+      DesiredCount: 0
+      ServiceName: "jenkins-master"
+      TaskDefinition: { "Ref": "JenkinsMasterTaskDefinition" }
+      Role : { "Ref" : "ECSServiceRole" }
+      LoadBalancers: [ {
+        LoadBalancerName: "jenkins-elb",
+        ContainerPort: "8080",
+        ContainerName: "jenkins-master" } ]
+        
+  JenkinsClusterScaleUpPolicy:
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AdjustmentType: "ChangeInCapacity"
+      AutoScalingGroupName: { "Ref": "JenkinsECSAutoScaling" }
+      EstimatedInstanceWarmup: 60
+      MetricAggregationType: "Average"
+      PolicyType: "StepScaling"
+      StepAdjustments: [ {
+        MetricIntervalLowerBound: 0,
+        ScalingAdjustment: 2 } ]
+ 
+  JenkinsClusterScaleUpAlarm:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmDescription: "CPU utilization peaked at 70% during the last minute"
+      AlarmName: "JenkinsClusterScaleUpAlarm"
+      AlarmActions: [ { "Ref": "JenkinsClusterScaleUpPolicy" } ]
+      Dimensions: [{
+        Name: "ClusterName",
+        Value: "jenkins-cluster" } ]
+      MetricName: "CPUReservation"
+      Namespace: "AWS/ECS"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      Statistic: "Maximum"
+      Threshold: 70
+      Period: 60
+      EvaluationPeriods: 1
+      TreatMissingData: "notBreaching"
+      
+
+  JenkinsClusterScaleDownPolicy:
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AdjustmentType: "PercentChangeInCapacity"
+      AutoScalingGroupName: { "Ref": JenkinsECSAutoScaling }
+      Cooldown: 120
+      ScalingAdjustment: -50
+      
+
+  JenkinsClusterScaleDownAlarm:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmDescription: "CPU utilization is under 50% for the last 10 min (change 10 min to 45 min for prod use as you pay by the hour )"
+      AlarmName: "JenkinsClusterScaleDownAlarm"
+      AlarmActions: [ { "Ref": "JenkinsClusterScaleDownPolicy" } ]
+      Dimensions: [{
+        Name: "ClusterName",
+        Value: "jenkins-cluster" } ]
+      MetricName: "CPUReservation"
+      Namespace: "AWS/ECS"
+      ComparisonOperator: "LessThanThreshold"
+      Statistic: "Maximum"
+      Threshold: 50
+      Period: 600
+      EvaluationPeriods: 1
+      TreatMissingData: "notBreaching"
+      
+
+  
+Outputs:
+    JenkinsELB:
+      Description: "Jenkins URL"
+      Value: {"Fn::Join": ["", ["http://", { "Fn::GetAtt" : [ "JenkinsELB", "DNSName" ] } ] ] }
+    JenkinsCluster:
+      Description: "ARN of ECS Cluster"
+      Value: {"Ref": "JenkinsCluster" }
+    JenkinsMasterTaskDefinition:
+      Description: "ARN of ECS TaskDefinition"
+      Value: {"Ref": "JenkinsMasterTaskDefinition"}
+    JenkinsECSService:
+      Description: "ARN of ECS Service"
+      Value: {"Ref": "JenkinsECSService"}
+    
+    
+    
+
+      
+
+      
+    
+  
+    
+
+
+    
+    
+          
+       
+      
+
