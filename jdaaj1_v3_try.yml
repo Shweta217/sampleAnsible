@@ -14,7 +14,7 @@ Parameters:
   DockerImage:
     Description: "The docker image to use for Jenkins"
     Type: "String"
-    Default: "sanjeev435/spring-petclinic"
+    Default: "sanjeev435/jenkins-elb-aws"
   AllowedIPRange:
     Description: "The public IP address range that can be used to connect to the instances"
     Type: "String"
