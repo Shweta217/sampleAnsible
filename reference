@@ -13,3 +13,21 @@ https://dzone.com/articles/announcing-the-nginx-plus-on-aws-cloud-quick-start
 
 https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.Scenarios.html
 https://dzone.com/articles/aws-elastic-load-balancing-elb-and-monitoring
+
+http://blog.totalcloud.io/ecs-vs-eks-vs-fargate-good-bad-ugly/
+eks cloudformation hosting of jenkins master to further build farms in the pods
+
+elb runtime chck
+elb routing to ecs clusters within same vpc
+elb routing to ecs clusters outside the vpc
+securing elb
+token generation in ecr?
+chck on cloudfront
+chck on php app of rds
+
+Experience in setting up Elastic Load Balancers (ELB's) and Auto Scaling groups on Production EC2 Instances to build Fault-Tolerant and HighAvailability applications.
+migration of applications to Amazon Cloud. 
+
+configuring instance backups to S3 bucket. 
+
+connecting to ec2 instances in differnet vpc wherein elb in differnet vpc
