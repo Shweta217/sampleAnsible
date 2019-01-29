@@ -31,3 +31,27 @@ migration of applications to Amazon Cloud.
 configuring instance backups to S3 bucket. 
 
 connecting to ec2 instances in differnet vpc wherein elb in differnet vpc
+
+________________________________________
+Linux interview ques
+https://www.bogotobogo.com/DevOps/DevOps-Sys-Admin-Interview-Questions-Commands.php
+https://intellipaat.com/interview-question/linux-interview-questions/
+https://linoxide.com/linux-how-to/linux-interview-questions-answers/
+https://devopscube.com/list-of-linux-commands-every-developer-should-know/
+https://opensource.com/article/17/7/20-sysadmin-commands
+https://www.tecmint.com/rhcsa-exam-manage-users-and-groups/
+https://www.tecmint.com/60-commands-of-linux-a-guide-from-newbies-to-system-administrator/
+https://www.tecmint.com/20-advanced-commands-for-linux-experts/
+https://geekflare.com/linux-commands-for-system-admin/
+https://stackoverflow.com/questions/15980247/how-to-check-if-a-server-is-running
+https://www.linuxtechi.com/execute-linux-commands-remote-system-over-ssh/
+https://www.tecmint.com/20-netstat-commands-for-linux-network-management/
+https://www.hpe.com/us/en/insights/articles/16-linux-server-monitoring-commands-you-really-need-to-know-1703.html
+https://unix.stackexchange.com/questions/56340/bash-script-to-detect-when-my-server-is-down-or-offline
+https://www.howtogeek.com/112674/how-to-find-files-and-folders-in-linux-using-the-command-line/
+https://www.linuxquestions.org/questions/linux-newbie-8/list-of-all-unix-flags-889026/
+https://www.linuxquestions.org/questions/linux-newbie-8/list-of-all-unix-flags-889026/
+https://www.oreilly.com/
+https://linux.die.net/man/
+https://www.quora.com/What-are-the-flags-available-in-Linux-commands
+
